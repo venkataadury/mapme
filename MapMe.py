@@ -27,6 +27,7 @@ DATA_DIR="data/"
 BORDER=12
 STEP=14
 MIN_STEP=3
+FAR_CUTOFF=3
 
 all_data=sorted([f for f in os.listdir(DATA_DIR) if f.endswith(".npz")])
 maps=dict()
@@ -127,9 +128,12 @@ class Puzzle:
                 R2+=1
             
         self.guessed_rank[idx]=max(R1,R2)
-        chk=(R1+R2==self.rank)
-        self.types[idx]=1 if chk else 0
-        return self.types[idx]
+        chk=((R1+R2)-self.rank)
+        if chk==0: self.types[idx]=1
+        elif chk<FAR_CUTOFF: self.types[idx]=0
+        else: self.types[idx]=2
+        #self.types[idx]=1 if chk else 0
+        return (self.types[idx]==1)
         
     def get_pure_grid(self,include_end=True):
         start=country_names[self.path[0]]
@@ -178,7 +182,7 @@ class Puzzle:
         final_grid=self.get_pure_grid().astype(float)
         for c in self.guessed:
             if self.types[c]==-1: continue #Start or end
-            elif draw_bad and (self.types[c]==0):
+            elif draw_bad and (self.types[c]==0 or self.types[c]==2):
                 final_grid+=maps[self.names[c]]/BLUE_FACTOR
             elif self.types[c]==1:
                 final_grid+=maps[self.names[c]]/GREEN_FACTOR
@@ -191,6 +195,8 @@ class Puzzle:
             if self.types[c]==-1: continue #Start or end
             elif draw_bad and (self.types[c]==0):
                 final_grid+=2*maps[self.names[c]].astype(np_int)
+            elif draw_bad and (self.types[c]==2):
+                final_grid+=4*maps[self.names[c]].astype(np_int)
             elif self.types[c]==1:
                 final_grid+=3*maps[self.names[c]].astype(np_int)
         final_grid=self.crop_grid(final_grid)
@@ -202,6 +208,7 @@ BLACK = pygame.Color(0, 0, 0)         # Black
 WHITE = pygame.Color(255, 255, 255)   # White
 GREY = pygame.Color(128, 128, 128)   # Grey
 RED = pygame.Color(255, 0, 0)       # Red
+ORANGE = pygame.Color(255, 140, 0)       # Orange
 GREEN = pygame.Color(0, 255, 0)       # Green
 BLUE = pygame.Color(60, 60, 255)       # Blue
 YELLOW = pygame.Color(255, 255, 0)       # Yellow
@@ -269,11 +276,15 @@ def get_map_image(puz,draw_bad=True):
 	
 	cat=np.where(final_grid==2) # Bad guess
 	for i in range(len(cat[0])):
-		img.set_at((cat[1][i], cat[0][i]), RED)
+		img.set_at((cat[1][i], cat[0][i]), ORANGE)
 	
 	cat=np.where(final_grid==3) # Good Guess
 	for i in range(len(cat[0])):
 		img.set_at((cat[1][i], cat[0][i]), GREEN)
+	
+	cat=np.where(final_grid==4) # Very bad guess
+	for i in range(len(cat[0])):
+		img.set_at((cat[1][i], cat[0][i]), RED)
 	
 	scale_x=(WIDTH-PANEL_WIDTH-BORDER)/img.get_width()
 	scale_y=(HEIGHT-TITLE_HEIGHT-BORDER)/img.get_height()
