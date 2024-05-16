@@ -189,13 +189,15 @@ class Puzzle:
         final_grid=self.crop_grid(final_grid)
         plt.imshow(final_grid)
     
-    def grid_for_pygame(self,draw_bad=True):
+    def grid_for_pygame(self,draw_bad=True,draw_very_bad=None):
+        global HIDE_FAR
+        if draw_very_bad is None: draw_very_bad=not HIDE_FAR
         final_grid=self.get_pure_grid().astype(np_int)    	
         for c in self.guessed:
             if self.types[c]==-1: continue #Start or end
             elif draw_bad and (self.types[c]==0):
                 final_grid+=2*maps[self.names[c]].astype(np_int)
-            elif draw_bad and (self.types[c]==2):
+            elif draw_very_bad and (self.types[c]==2):
                 final_grid+=4*maps[self.names[c]].astype(np_int)
             elif self.types[c]==1:
                 final_grid+=3*maps[self.names[c]].astype(np_int)
@@ -226,6 +228,7 @@ DROPDOWNS_HEIGHT=48
 DROPDOWNS_COLOR=WHITE
 BUTTONS_HEIGHT=48
 BUTTONS_COLOR=pygame.Color(160,160,160)
+HIDE_FAR=False
 
 
 # Decor
@@ -266,7 +269,7 @@ def draw_extras():
 	draw_title()
 def get_map_image(puz,draw_bad=True):
 	global scale_x,scale_y
-	final_grid=puz.grid_for_pygame(draw_bad=draw_bad)
+	final_grid=puz.grid_for_pygame(draw_bad=draw_bad, draw_very_bad=not HIDE_FAR)
 	img_shape=final_grid.shape
 	img=pygame.Surface((img_shape[1],img_shape[0]))
 	
@@ -363,6 +366,14 @@ def unblock_button():
 	dropdown_countries.textBar.text.clear()
 	dropdown_countries.reset()
 
+def hide_far_button():
+	global button_hide_far,HIDE_FAR,K,DRAWN_MAP
+	HIDE_FAR=not HIDE_FAR
+	if HIDE_FAR: button_hide_far.setText("Show all")
+	else: button_hide_far.setText("Hide bad guesses")
+	DRAWN_MAP=get_map_image(puz)
+	K=0
+
 # Interactables
 ## Dropdown of countries
 dropdown_countries = ComboBox(DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT, name='Select guess country',
@@ -393,6 +404,11 @@ button_unblock=Button(
     DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100-BUTTONS_HEIGHT-10, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Clear Box', fontSize=30,
     margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
     radius=5, onClick=unblock_button, font=pygame.font.SysFont('calibri', 18))
+## Hide-far button
+button_hide_far=Button(
+    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-250, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Hide bad guesses', fontSize=27,
+    margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
+    radius=5, onClick=hide_far_button, font=pygame.font.SysFont('calibri', 18))
 
 # Pick the two countries:
 reset_button()
