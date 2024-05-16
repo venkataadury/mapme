@@ -20,7 +20,8 @@ The following python packages are required to run this program. The default inst
 You are given two countries (a start and a finish) that you need to join by supplying intermediate countries.<br/>
 Countries guessed will be highlighted in 3 colors based on the following:
 - Yellow: Start/End (Given by the program)
-- Red: Wrong (i.e. there is no optimal path that passes through that country)
+- Orange: Wrong (i.e. there is no optimal path that passes through that country), but you are close. A nearby country (usually within a distance of 2) is on the optimal path
+- Red: Wrong (i.e. there is no optimal path that passes through that country). You are way off the intended path and any path through this country is at-least 3 steps longer than the optimal path.
 - Green: Correct (i.e. there *exists* an optimal path that passes through that country
 Note that there may be more than one optimal path (multiple paths can have the same length).<br/>
 The (ideal) goal is to complete the connection in exactly 'k' guesses, where 'k' is the length of the optimal path.
