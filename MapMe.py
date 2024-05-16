@@ -14,6 +14,30 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 # Load the game
+DATA_DIR="data/"
+BORDER=12
+STEP=16
+MIN_STEP=3
+FAR_CUTOFF=3
+LOW_MEM=True
+
+class DynamicMapLoader:
+	def __init__(self,mapfol,ext=".npz",memorize=True):
+		self.folder=mapfol
+		self.ext=ext
+		self.maps=dict()
+		self.mem=True
+	
+	def __getitem__(self,x):
+		if x not in self.maps:
+			map=np.load(self.folder+"/"+x+self.ext)["data"]
+			if not self.mem: return map
+			else: self.maps[x]=map
+		return self.maps[x]
+	
+	def reset(self):
+		self.maps=dict()
+
 ## Game data
 print("Loading country names and connections ...",end=" ",flush=True)
 country_names=np.load("data/indexed_countries.npy")
@@ -23,20 +47,19 @@ country_adj=country_adj | country_adj.transpose() # Symmetrize
 assert (country_adj.shape[0]==len(country_names))
 print("done",flush=True)
 
-DATA_DIR="data/"
-BORDER=12
-STEP=14
-MIN_STEP=3
-FAR_CUTOFF=3
-
 all_data=sorted([f for f in os.listdir(DATA_DIR) if f.endswith(".npz")])
-maps=dict()
-print("Loading all country maps ...",end=" ",flush=True)
-for f in all_data:
-    map=np.load("data/"+f)["data"]
-    country=f[:-4].lower()
-    maps[country]=map
-print("done")
+if not LOW_MEM:
+	maps=dict()
+	print("Loading all country maps ...",end=" ",flush=True)
+	for f in all_data:
+		  map=np.load("data/"+f)["data"]
+		  country=f[:-4].lower()
+		  maps[country]=map
+	print("done")
+else:
+	print("Using low memory mode - dynamic map loading",flush=True)
+	maps=DynamicMapLoader(DATA_DIR)
+	print("Map loader is setup",flush=True)
 
 def path_finder(adj,start,end,using,skipping=[]):
 	#print(country_names[start],country_names[end])
@@ -342,8 +365,8 @@ def confirm_button():
 	DRAWN_MAP=get_map_image(puz)
 	K=0
 
-def reset_button():
-	global K,GUESSES,puz,start,end,DRAWN_MAP,button_confirm
+def reset_button(via_button=True):
+	global K,GUESSES,puz,start,end,DRAWN_MAP,button_confirm,maps
 	button_confirm.show()
 	button_win.hide()
 	K=0
@@ -361,6 +384,9 @@ def reset_button():
 	print("Start:",start)
 	print("End:",end)
 	DRAWN_MAP=None
+	if via_button and LOW_MEM:
+		maps.reset()
+		print("Low memory mode - Clearing map cache",flush=True)
 
 def unblock_button():
 	dropdown_countries.textBar.text.clear()
@@ -411,7 +437,7 @@ button_hide_far=Button(
     radius=5, onClick=hide_far_button, font=pygame.font.SysFont('calibri', 18))
 
 # Pick the two countries:
-reset_button()
+reset_button(via_button=False)
 
 # Start the gameloop
 while True:
