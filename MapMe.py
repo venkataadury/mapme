@@ -183,9 +183,7 @@ class Puzzle:
     	else:
     		x_min,x_max=self.zoom[0]
     		y_min,y_max=self.zoom[1]
-    	print("Old cropping:",self.cropping)
     	self.cropping=((x_min,x_max),(y_min,y_max))
-    	print("New cropping:",self.cropping)
     	final_grid=final_grid[max(x_min-BORDER,0):x_max+BORDER,max(0,y_min-BORDER):y_max+BORDER]
     	return final_grid
 
@@ -208,16 +206,8 @@ class Puzzle:
     def bound_to_grid(self,x,y):
     	if x<0:
     		x=0
-    		print("EX")
     	if y<0:
     		y=0
-    		print("EY")
-    	if x>self.final_grid.shape[1]:
-    		x=self.final_grid.shape[1]
-    		print("FX")
-    	if y>self.final_grid.shape[0]:
-    		x=self.final_grid.shape[0]
-    		print("FY")
     	return x,y
     
     def get_country_at(self,x,y):
@@ -434,6 +424,14 @@ def hide_far_button():
 	DRAWN_MAP=get_map_image(puz)
 	K=0
 
+def reset_zoom_button():
+	global puz,DRAWN_MAP,K,CLICK_START,CLICK_START_ORIG
+	CLICK_START=None
+	CLICK_START_ORIG=None
+	puz.zoom=None
+	DRAWN_MAP=get_map_image(puz)
+	K=0
+
 # Mouse Actions
 ## Click down
 def click_down(x,y):
@@ -444,16 +442,12 @@ def click_down(x,y):
 		return
 	CLICK_START_ORIG=(x,y)
 	cx,cy=puz.bound_to_grid(*backmap(x,y))
-	print("Clicked!")
-	print("On grid:",cx,cy)
 	CLICK_START=(cx,cy)
 ## Click up
 def click_up(x,y):
 	global puz,DRAWN_MAP,K,CLICK_START,CLICK_START_ORIG
 	if CLICK_START is None: return
 	cx,cy=puz.bound_to_grid(*backmap(x,y))
-	print("Released!",flush=True)
-	print("On grid:",cx,cy)
 	cxo,cyo=CLICK_START[0],CLICK_START[1]
 	if abs(cxo-cx)<ZOOM_THRESH or abs(cyo-cy)<ZOOM_THRESH:
 		CLICK_START=None
@@ -466,8 +460,9 @@ def click_up(x,y):
 		cx+=puz.cropping[1][0]
 		cyo+=puz.cropping[0][0]
 		cy+=puz.cropping[0][0]
+		if cx>puz.cropping[1][1]: cx=puz.cropping[1][1]
+		if cy>puz.cropping[0][1]: cy=puz.cropping[0][1]
 		puz.zoom=((cyo,cy),(cxo,cx))
-		print(puz.zoom,puz.cropping)
 	CLICK_START=None
 	CLICK_START_ORIG=None
 	DRAWN_MAP=get_map_image(puz)
@@ -496,7 +491,7 @@ button_win.disable()
 
 ## Reset button
 button_reset=Button(
-    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-150, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Reset', fontSize=30,
+    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-2*BUTTONS_HEIGHT, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Reset', fontSize=30,
     margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
     radius=5, onClick=reset_button, font=pygame.font.SysFont('calibri', 18))
 ## Unblock button
@@ -506,9 +501,13 @@ button_unblock=Button(
     radius=5, onClick=unblock_button, font=pygame.font.SysFont('calibri', 18))
 ## Hide-far button
 button_hide_far=Button(
-    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-250, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Hide bad guesses', fontSize=27,
+    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-150-2*BUTTONS_HEIGHT, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Hide bad guesses', fontSize=27,
     margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
     radius=5, onClick=hide_far_button, font=pygame.font.SysFont('calibri', 18))
+button_reset_zoom=Button(
+    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-150-int(3.5*BUTTONS_HEIGHT), PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Reset Zoom', fontSize=27,
+    margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
+    radius=5, onClick=reset_zoom_button, font=pygame.font.SysFont('calibri', 18))
 
 # Pick the two countries:
 reset_button(via_button=False)
@@ -529,10 +528,13 @@ while True:
     	DISPLAYSURF.fill(BLACK)
     	draw_map(puz)
     	K=0
-    	print("Drew Map",CLICK_START_ORIG)
     	if CLICK_START_ORIG is not None:
     		cmous=pygame.mouse.get_pos()
-    		pygame.draw.rect(DISPLAYSURF,WHITE,pygame.Rect(CLICK_START_ORIG[0],CLICK_START_ORIG[1],cmous[0]-CLICK_START_ORIG[0],cmous[1]-CLICK_START_ORIG[1]),SELECT_THICKNESS)
+    		ox,oy=CLICK_START_ORIG[0],CLICK_START_ORIG[1]
+    		w,h=abs(cmous[0]-CLICK_START_ORIG[0]),abs(cmous[1]-CLICK_START_ORIG[1])
+    		if ox>cmous[0]: ox=cmous[0]
+    		if oy>cmous[1]: oy=cmous[1]
+    		pygame.draw.rect(DISPLAYSURF,WHITE,pygame.Rect(ox,oy,w,h),SELECT_THICKNESS)
     	
     
     if K%MOUSEOVER_MOD==0:
