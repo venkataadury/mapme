@@ -16,10 +16,13 @@ from PIL import Image
 # Load the game
 DATA_DIR="data/"
 BORDER=12
+SELECT_THICKNESS=6
 STEP=16
 MIN_STEP=3
 FAR_CUTOFF=3
 LOW_MEM=True
+ZOOM_THRESH=2
+ENABLE_ZOOM=True
 
 class DynamicMapLoader:
 	def __init__(self,mapfol,ext=".npz",memorize=True):
@@ -111,6 +114,8 @@ class Puzzle:
         self.guessed_rank=[]
         self.names=names
         self.adj=adj
+        self.zoom=None
+        self.cropping=None
         
         self.evaluate()
 
@@ -168,15 +173,21 @@ class Puzzle:
         return final_grid
 
     def crop_grid(self,final_grid):
-        final_grid[2000:,:1000]=0.0
-        grid_bounds_x,grid_bounds_y=np.where(final_grid)
-        x_min=np.min(grid_bounds_x)
-        x_max=np.max(grid_bounds_x)
-        y_min=np.min(grid_bounds_y)
-        y_max=np.max(grid_bounds_y)
-        self.cropping=((x_min,x_max),(y_min,y_max))
-        final_grid=final_grid[max(x_min-BORDER,0):x_max+BORDER,max(0,y_min-BORDER):y_max+BORDER]
-        return final_grid
+    	final_grid[2000:,:1000]=0.0
+    	if (self.zoom is None) or not ENABLE_ZOOM:
+    		grid_bounds_x,grid_bounds_y=np.where(final_grid)
+    		x_min=np.min(grid_bounds_x)
+    		x_max=np.max(grid_bounds_x)
+    		y_min=np.min(grid_bounds_y)
+    		y_max=np.max(grid_bounds_y)
+    	else:
+    		x_min,x_max=self.zoom[0]
+    		y_min,y_max=self.zoom[1]
+    	print("Old cropping:",self.cropping)
+    	self.cropping=((x_min,x_max),(y_min,y_max))
+    	print("New cropping:",self.cropping)
+    	final_grid=final_grid[max(x_min-BORDER,0):x_max+BORDER,max(0,y_min-BORDER):y_max+BORDER]
+    	return final_grid
 
     def victory(self):
         vp=0
@@ -187,6 +198,27 @@ class Puzzle:
         	print(path_finder(self.adj,self.path[0],self.path[-1],self.guessed),"is the path")
         	return True
         except ValueError: return False
+    
+    def on_grid(self,x,y):
+    	if x<0 or y<0: return False
+    	try:
+    		v=self.final_grid[y,x]
+    		return True
+    	except IndexError: return False
+    def bound_to_grid(self,x,y):
+    	if x<0:
+    		x=0
+    		print("EX")
+    	if y<0:
+    		y=0
+    		print("EY")
+    	if x>self.final_grid.shape[1]:
+    		x=self.final_grid.shape[1]
+    		print("FX")
+    	if y>self.final_grid.shape[0]:
+    		x=self.final_grid.shape[0]
+    		print("FY")
+    	return x,y
     
     def get_country_at(self,x,y):
     	if x<0 or y<0: return None
@@ -345,6 +377,8 @@ GUESSES=0
 puz=None
 start,end=None,None
 DRAWN_MAP=None
+CLICK_START=None
+CLICK_START_ORIG=None
 #path=None
 
 # Interactable functions
@@ -400,6 +434,46 @@ def hide_far_button():
 	DRAWN_MAP=get_map_image(puz)
 	K=0
 
+# Mouse Actions
+## Click down
+def click_down(x,y):
+	global CLICK_START,CLICK_START_ORIG
+	if x>WIDTH-PANEL_WIDTH or y<TITLE_HEIGHT:
+		CLICK_START=None
+		CLICK_START_ORIG=None
+		return
+	CLICK_START_ORIG=(x,y)
+	cx,cy=puz.bound_to_grid(*backmap(x,y))
+	print("Clicked!")
+	print("On grid:",cx,cy)
+	CLICK_START=(cx,cy)
+## Click up
+def click_up(x,y):
+	global puz,DRAWN_MAP,K,CLICK_START,CLICK_START_ORIG
+	if CLICK_START is None: return
+	cx,cy=puz.bound_to_grid(*backmap(x,y))
+	print("Released!",flush=True)
+	print("On grid:",cx,cy)
+	cxo,cyo=CLICK_START[0],CLICK_START[1]
+	if abs(cxo-cx)<ZOOM_THRESH or abs(cyo-cy)<ZOOM_THRESH:
+		CLICK_START=None
+		CLICK_START_ORIG=None
+		return
+	else:
+		if cxo>cx: cx,cxo=cxo,cx
+		if cyo>cy: cy,cyo=cyo,cy
+		cxo+=puz.cropping[1][0]
+		cx+=puz.cropping[1][0]
+		cyo+=puz.cropping[0][0]
+		cy+=puz.cropping[0][0]
+		puz.zoom=((cyo,cy),(cxo,cx))
+		print(puz.zoom,puz.cropping)
+	CLICK_START=None
+	CLICK_START_ORIG=None
+	DRAWN_MAP=get_map_image(puz)
+	K=0
+
+
 # Interactables
 ## Dropdown of countries
 dropdown_countries = ComboBox(DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT, name='Select guess country',
@@ -446,11 +520,20 @@ while True:
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+        	click_down(*pygame.mouse.get_pos())
+        elif event.type == pygame.MOUSEBUTTONUP:
+        	click_up(*pygame.mouse.get_pos())
     
-    if K%DRAW_MOD==0:
+    if K%DRAW_MOD==0 or CLICK_START_ORIG is not None:
     	DISPLAYSURF.fill(BLACK)
     	draw_map(puz)
     	K=0
+    	print("Drew Map",CLICK_START_ORIG)
+    	if CLICK_START_ORIG is not None:
+    		cmous=pygame.mouse.get_pos()
+    		pygame.draw.rect(DISPLAYSURF,WHITE,pygame.Rect(CLICK_START_ORIG[0],CLICK_START_ORIG[1],cmous[0]-CLICK_START_ORIG[0],cmous[1]-CLICK_START_ORIG[1]),SELECT_THICKNESS)
+    	
     
     if K%MOUSEOVER_MOD==0:
     	draw_extras()
