@@ -24,6 +24,7 @@ LOW_MEM=True
 ZOOM_THRESH=24
 ENABLE_ZOOM=True
 AA_ALL_TEXT=False
+MODE=0
 
 def lcs(X, Y, m=None, n=None):
     if m is None: m=len(X)
@@ -87,19 +88,23 @@ class ArtificialComboBox:
 		
 		band_height=self.loc[-1] if "band_height" not in self.options else self.options["band_height"]
 		
+		found=False
+		found_idx=-1
+		if self.focus:
+			bx,by=self.loc[0],self.loc[1]+self.loc[3]
+			for i,pred in enumerate(self.preds):
+				nR=pygame.Rect(bx,by,self.loc[2],band_height)
+				if nR.collidepoint(*pygame.mouse.get_pos()):
+					found=True
+					found_idx=i
+					break
+				by+=band_height
+				
 		for event in events:
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				if self.rect.collidepoint(*pygame.mouse.get_pos()):
 					self.focus=True
 				elif self.focus:
-					bx,by=self.loc[0],self.loc[1]+self.loc[3]
-					found=False
-					for pred in self.preds:
-						nR=pygame.Rect(bx,by,self.loc[2],band_height)
-						if nR.collidepoint(*pygame.mouse.get_pos()):
-							found=True
-							break
-						by+=band_height
 					if found:
 						self.set_text(pred,False)
 					self.focus=False
@@ -123,8 +128,9 @@ class ArtificialComboBox:
 			all_guesses=self._get_predictions()
 			self.preds=all_guesses
 			bx,by=self.loc[0],self.loc[1]+self.loc[3]
-			for pred in all_guesses:
-				pygame.draw.rect(self.parent,col,(bx,by,self.loc[2],band_height))
+			for i,pred in enumerate(all_guesses):
+				if found and found_idx==i and hlcol is not None: pygame.draw.rect(self.parent,hlcol,(bx,by,self.loc[2],band_height))
+				else: pygame.draw.rect(self.parent,col,(bx,by,self.loc[2],band_height))
 				text_surface = DEFAULT_FONT.render(pred.strip(), AA_ALL_TEXT, BLACK)
 				self.parent.blit(text_surface,(bx+10,by+5))
 				by+=band_height
@@ -638,7 +644,7 @@ reset_button(via_button=False)
 
 # Manually add artificial stuff
 ARTIFICIAL_WIDGETS=ArtificialWidgets()
-art_combobox=ArtificialComboBox(DISPLAYSURF,countries_for_dropdown,(WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT),"Select country (type ...)",band_height=DROPDOWNS_HEIGHT//2,text_y_shift=15)
+art_combobox=ArtificialComboBox(DISPLAYSURF,countries_for_dropdown,(WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT),"Select country (type ...)",band_height=DROPDOWNS_HEIGHT//2,text_y_shift=15,hlcolor=GREEN)
 ARTIFICIAL_WIDGETS.addWidget(art_combobox)
 
 
