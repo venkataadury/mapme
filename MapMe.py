@@ -23,6 +23,123 @@ FAR_CUTOFF=3
 LOW_MEM=True
 ZOOM_THRESH=24
 ENABLE_ZOOM=True
+AA_ALL_TEXT=False
+
+def lcs(X, Y, m=None, n=None):
+    if m is None: m=len(X)
+    if n is None: n=len(Y)
+    if m == 0 or n == 0:
+       return 0;
+    elif X[m-1] == Y[n-1]:
+       return 1-0.01*(m+n) + lcs(X, Y, m-1, n-1);
+    else:
+       return max(lcs(X, Y, m, n-1), lcs(X, Y, m-1, n));
+
+class ArtificialComboBox:
+	def __init__(self,parent,opts,shape,alt_text="Select",match_threshold=1,**kwargs):
+		self.loc=shape
+		self.choices=np.array(opts,dtype=str)
+		self.options=kwargs
+		self.parent=parent
+		self.base_text=alt_text
+		self.focus=False
+		self.threshold=match_threshold
+		self.setup()
+	
+	def setup(self):
+		self.rect=pygame.Rect(*self.loc)
+		self.max_guess=5 if "max_guess" not in self.options else int(self.options["max_guess"])
+		self.clear()
+	
+	def clear(self):
+		self.text=self.base_text
+		self.typing=False
+	def get_text(self): return self.text.strip()
+	def set_text(self,t,keep_typing=True):
+		self.text=t
+		self.typing=keep_typing
+	
+	def _get_predictions(self):
+		query=self.get_text()
+		if not len(query) or not self.typing: return []
+		hdist=np.array([lcs(query,ch) for ch in self.choices])
+		hdist_idx=np.argsort(hdist)[::-1]
+		hdist=hdist[hdist_idx]
+		#print(hdist)
+		res=list(self.choices[hdist_idx[hdist>=self.threshold]])
+		if not len(res): return []
+		else: return res[:self.max_guess]
+	
+	def update(self,events):
+		if self.focus:
+			col=YELLOW if "focuscolor" not in self.options else self.options["focuscolor"]
+		else:
+			col=WHITE if "bgcolor" not in self.options else self.options["bgcolor"]
+		hlcol=None if "hlcolor" not in self.options else self.options["hlcolor"]
+		bthick=2 if "border" not in self.options else int(self.options["border"])
+		bordcol=BLACK if "bordercolor" not in self.options else self.options["bordercolor"]
+		pygame.draw.rect(self.parent,col,self.rect)
+		
+		tsx=10 if "text_x_shift" not in self.options else self.options["text_x_shift"]
+		tsy=5 if "text_y_shift" not in self.options else self.options["text_y_shift"]
+		text_surface = DEFAULT_FONT.render(self.text, AA_ALL_TEXT, BLACK)
+		self.parent.blit(text_surface,(self.loc[0]+tsx,self.loc[1]+tsy))
+		
+		band_height=self.loc[-1] if "band_height" not in self.options else self.options["band_height"]
+		
+		for event in events:
+			if event.type == pygame.MOUSEBUTTONDOWN:
+				if self.rect.collidepoint(*pygame.mouse.get_pos()):
+					self.focus=True
+				elif self.focus:
+					bx,by=self.loc[0],self.loc[1]+self.loc[3]
+					found=False
+					for pred in self.preds:
+						nR=pygame.Rect(bx,by,self.loc[2],band_height)
+						if nR.collidepoint(*pygame.mouse.get_pos()):
+							found=True
+							break
+						by+=band_height
+					if found:
+						self.set_text(pred,False)
+					self.focus=False
+				else:
+					continue
+			if not self.focus: continue
+			if event.type==pygame.KEYDOWN and event.key<256:
+				if (event.key<97 or event.key>123) and event.key not in (32,8): continue
+				if event.key==8 and len(self.text):
+					if not self.typing: self.text=""
+					else: self.text=self.text[:-1]
+					continue
+				elif event.key!=8:
+					ch=chr(event.key)
+					if self.typing: self.text+=ch
+					else:
+						self.text=ch
+						self.typing=True
+		
+		if self.focus:
+			all_guesses=self._get_predictions()
+			self.preds=all_guesses
+			bx,by=self.loc[0],self.loc[1]+self.loc[3]
+			for pred in all_guesses:
+				pygame.draw.rect(self.parent,col,(bx,by,self.loc[2],band_height))
+				text_surface = DEFAULT_FONT.render(pred.strip(), AA_ALL_TEXT, BLACK)
+				self.parent.blit(text_surface,(bx+10,by+5))
+				by+=band_height
+		
+		pygame.draw.rect(self.parent,bordcol,(self.loc[0]-bthick,self.loc[1]-bthick,self.loc[2]+2*bthick,self.loc[3]+2*bthick),bthick)
+				
+
+class ArtificialWidgets:
+	def __init__(self):
+		self.widgets=[]
+	
+	def addWidget(self,obj): self.widgets.append(obj)
+	def update(self,events):
+		for obj in self.widgets: obj.update(events)
+		
 
 class DynamicMapLoader:
 	def __init__(self,mapfol,ext=".npz",memorize=True):
@@ -374,13 +491,18 @@ CLICK_START_ORIG=None
 # Interactable functions
 def confirm_button():
 	global K,GUESSES,puz,DRAWN_MAP
-	ce=dropdown_countries.getText().strip().lower()
-	if ce=="": return
+	#ce=dropdown_countries.getText().strip().lower()
+	ce=art_combobox.get_text()
+	if ce=="" or ce==art_combobox.base_text: return
 	ce=ce.replace(" ","_")
 	GUESSES+=1
-	idx=list(country_names).index(ce)
+	try:
+		idx=list(country_names).index(ce)
+	except:
+		return
 	puz.guess(idx)
-	dropdown_countries.textBar.text.clear()
+	#dropdown_countries.textBar.text.clear()
+	art_combobox.clear()
 	vic=puz.victory()
 	if vic:
 		button_confirm.hide()
@@ -413,8 +535,9 @@ def reset_button(via_button=True):
 		print("Low memory mode - Clearing map cache",flush=True)
 
 def unblock_button():
-	dropdown_countries.textBar.text.clear()
-	dropdown_countries.reset()
+	#dropdown_countries.textBar.text.clear()
+	#dropdown_countries.reset()
+	art_combobox.clear()
 
 def hide_far_button():
 	global button_hide_far,HIDE_FAR,K,DRAWN_MAP
@@ -471,12 +594,13 @@ def click_up(x,y):
 
 # Interactables
 ## Dropdown of countries
-dropdown_countries = ComboBox(DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT, name='Select guess country',
-    choices=countries_for_dropdown,
-    maxResults=5,
-    font=pygame.font.SysFont('calibri', 30),
-    borderRadius=3, colour=DROPDOWNS_COLOR, direction='down',
-    textHAlign='left')
+#dropdown_countries = ComboBox(DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT, name='Select guess country',
+#    choices=countries_for_dropdown,
+#    maxResults=5,
+#    font=pygame.font.SysFont('calibri', 30),
+#    borderRadius=3, colour=DROPDOWNS_COLOR, direction='down',
+#    textHAlign='left')
+
 ## Confirm button
 button_confirm=Button(
     DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Guess', fontSize=30,
@@ -512,6 +636,13 @@ button_reset_zoom=Button(
 # Pick the two countries:
 reset_button(via_button=False)
 
+# Manually add artificial stuff
+ARTIFICIAL_WIDGETS=ArtificialWidgets()
+art_combobox=ArtificialComboBox(DISPLAYSURF,countries_for_dropdown,(WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100+BUTTONS_HEIGHT+12, PANEL_WIDTH-2*PANEL_BORDER, DROPDOWNS_HEIGHT),"Select country (type ...)",band_height=DROPDOWNS_HEIGHT//2,text_y_shift=15)
+ARTIFICIAL_WIDGETS.addWidget(art_combobox)
+
+
+print(lcs("china","ind"),lcs("india","ind"))
 # Start the gameloop
 while True:
     events = pygame.event.get()
@@ -548,6 +679,7 @@ while True:
     K+=1
     
     pygame_widgets.update(events)
+    ARTIFICIAL_WIDGETS.update(events)
     pygame.display.update()
     frames_per_second.tick(FPS)
 
