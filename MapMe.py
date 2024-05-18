@@ -425,16 +425,67 @@ pygame.display.set_caption("Map Me")
 
 TITLE_FONT = pygame.font.SysFont('Calibri', 30)
 DEFAULT_FONT = pygame.font.SysFont('Calibri', 18)
+BOLD_DEFAULT_FONT = pygame.font.SysFont('Calibri', 20,bold=True)
 
 
 # Standard drawing protocols
 def draw_title():
-	text_surface = TITLE_FONT.render('Connect '+start.replace("_"," ")+' to '+end.replace("_"," "), True, TITLE_TEXT_COLOR)
+	text_surface = TITLE_FONT.render('Connect '+start.replace("_"," ")+' to '+end.replace("_"," ")+" in "+str(puz.rank-1)+" guesses", True, TITLE_TEXT_COLOR)
 	DISPLAYSURF.blit(text_surface,(100,5))
 def draw_extras():
 	pygame.draw.rect(DISPLAYSURF,GREY,PANEL_RECT)
 	pygame.draw.rect(DISPLAYSURF,TITLE_COLOR,TITLE_RECT)
 	draw_title()
+def draw_rules(antialias=True):
+	pygame.draw.rect(DISPLAYSURF,GREY,(0,0,WIDTH-PANEL_WIDTH,HEIGHT))
+	heading = TITLE_FONT.render("Rules", True, BLACK)
+	DISPLAYSURF.blit(heading,((WIDTH-PANEL_WIDTH)//2-50,5))
+	line1=DEFAULT_FONT.render("You will be given 2 countries to connect. Guess other nearby countries to form a", antialias, BLACK)
+	line2=DEFAULT_FONT.render("connected linkage between the two. Some connections can go through water-ways.", antialias, BLACK)
+	line3=DEFAULT_FONT.render("Guess which ones!", antialias, BLACK)
+	line4=DEFAULT_FONT.render("The optimal path length (minimum guesses required) is given.", antialias, BLACK)
+	DISPLAYSURF.blit(line1,(40,50))
+	DISPLAYSURF.blit(line2,(40,75))
+	DISPLAYSURF.blit(line3,(40,100))
+	DISPLAYSURF.blit(line4,(40,125))
+	
+	sh2=BOLD_DEFAULT_FONT.render("Color codes",True,BLACK)
+	DISPLAYSURF.blit(sh2,(40,175))
+	
+	red_name=DEFAULT_FONT.render("Red",antialias,RED)
+	yellow_name=DEFAULT_FONT.render("Yellow",antialias,YELLOW)
+	orange_name=DEFAULT_FONT.render("Orange",antialias,ORANGE)
+	green_name=DEFAULT_FONT.render("Green",antialias,GREEN)
+	
+	line1_1=DEFAULT_FONT.render("indicates countries you identified, and are part of an optimal path", antialias, BLACK)
+	line1_2=DEFAULT_FONT.render("between the two countries", antialias, BLACK)
+	line2=DEFAULT_FONT.render("indicates that you are close but not on the optimal path", antialias, BLACK)
+	line3_1=DEFAULT_FONT.render("indicates that you are way off. The 'Hide bad guesses' button", antialias, BLACK)
+	line3_2=DEFAULT_FONT.render("can hide these for brevity", antialias, BLACK)
+	line4=DEFAULT_FONT.render("indicates the start and end countries", antialias, BLACK)
+	DISPLAYSURF.blit(green_name,(60,210))
+	DISPLAYSURF.blit(line1_1,(150,210))
+	DISPLAYSURF.blit(line1_2,(150,230))
+	DISPLAYSURF.blit(orange_name,(60,260))
+	DISPLAYSURF.blit(line2,(150,260))
+	DISPLAYSURF.blit(red_name,(60,285))
+	DISPLAYSURF.blit(line3_1,(150,285))
+	DISPLAYSURF.blit(line3_2,(150,305))
+	DISPLAYSURF.blit(yellow_name,(60,330))
+	DISPLAYSURF.blit(line4,(150,330))
+	
+	line1=DEFAULT_FONT.render("Hovering the mouse over any country in the map shows its name in the right-side panel", antialias, BLACK)
+	DISPLAYSURF.blit(line1,(40,375))
+	line1=DEFAULT_FONT.render("To guess an intermediate country click on the textbox and start typing", antialias, BLACK)
+	line2=DEFAULT_FONT.render("A drop-down box will automatically suggest possible countries. Click on one to select", antialias, BLACK)
+	line3=DEFAULT_FONT.render("Click on 'Guess' to commit to your guess after selecting a country", antialias, BLACK)
+	DISPLAYSURF.blit(line1,(40,400))
+	DISPLAYSURF.blit(line2,(40,425))
+	DISPLAYSURF.blit(line3,(40,450))
+	
+	line4=DEFAULT_FONT.render("Click on 'Reset' to restart the game with another pair of starting countries", antialias, BLACK)
+	DISPLAYSURF.blit(line4,(40,500))
+
 def get_map_image(puz,draw_bad=True):
 	global scale_x,scale_y
 	final_grid=puz.grid_for_pygame(draw_bad=draw_bad, draw_very_bad=not HIDE_FAR)
@@ -545,6 +596,21 @@ def unblock_button():
 	#dropdown_countries.reset()
 	art_combobox.clear()
 
+def help_button():
+	global MODE,button_help
+	if MODE==0:
+		MODE=1
+		button_help.setText("Back to game")
+		button_confirm.disable()
+		button_unblock.disable()
+		button_reset_zoom.disable()
+	else:
+		MODE=0
+		button_help.setText("Help (Rules)")
+		button_confirm.enable()
+		button_unblock.enable()
+		button_reset_zoom.enable()
+
 def hide_far_button():
 	global button_hide_far,HIDE_FAR,K,DRAWN_MAP
 	HIDE_FAR=not HIDE_FAR
@@ -629,6 +695,11 @@ button_unblock=Button(
     DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, TITLE_HEIGHT+100-BUTTONS_HEIGHT-10, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Clear Box', fontSize=30,
     margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
     radius=5, onClick=unblock_button, font=pygame.font.SysFont('calibri', 18))
+button_help=Button(
+    DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-150-int(6*BUTTONS_HEIGHT), PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Help (Rules)', fontSize=30,
+    margin=15, inactiveColour=BUTTONS_COLOR, hoverColour=(60, 60, 60), pressedColour=(128, 128, 128),
+    radius=5, onClick=help_button, font=pygame.font.SysFont('calibri', 18))
+   
 ## Hide-far button
 button_hide_far=Button(
     DISPLAYSURF, WIDTH-PANEL_WIDTH+PANEL_BORDER, HEIGHT-150-2*BUTTONS_HEIGHT, PANEL_WIDTH-2*PANEL_BORDER, BUTTONS_HEIGHT, text='Hide bad guesses', fontSize=27,
@@ -656,36 +727,39 @@ while True:
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif MODE==0 and (event.type == pygame.MOUSEBUTTONDOWN):
         	click_down(*pygame.mouse.get_pos())
-        elif event.type == pygame.MOUSEBUTTONUP:
+        elif MODE==0 and (event.type == pygame.MOUSEBUTTONUP):
         	click_up(*pygame.mouse.get_pos())
     
-    if K%DRAW_MOD==0 or CLICK_START_ORIG is not None:
-    	DISPLAYSURF.fill(BLACK)
-    	draw_map(puz)
-    	K=0
-    	if CLICK_START_ORIG is not None:
-    		cmous=pygame.mouse.get_pos()
-    		ox,oy=CLICK_START_ORIG[0],CLICK_START_ORIG[1]
-    		w,h=abs(cmous[0]-CLICK_START_ORIG[0]),abs(cmous[1]-CLICK_START_ORIG[1])
-    		if ox>cmous[0]: ox=cmous[0]
-    		if oy>cmous[1]: oy=cmous[1]
-    		pygame.draw.rect(DISPLAYSURF,WHITE,pygame.Rect(ox,oy,w,h),SELECT_THICKNESS)
-    	
-    
-    if K%MOUSEOVER_MOD==0:
-    	draw_extras()
-    	mouse_pos=pygame.mouse.get_pos()
-    	backmap_pos=backmap(*mouse_pos)
-    	country_text=puz.get_country_at(*backmap_pos)
-    	if country_text is not None:
-    		text_surface = DEFAULT_FONT.render(country_text, True, BLACK)
-    		DISPLAYSURF.blit(text_surface,(WIDTH-PANEL_WIDTH+20,HEIGHT//2))
-    K+=1
+    if MODE==1:
+    	draw_rules()
+    else:
+    	if K%DRAW_MOD==0 or CLICK_START_ORIG is not None:
+    		DISPLAYSURF.fill(BLACK)
+    		draw_map(puz)
+    		K=0
+    		if CLICK_START_ORIG is not None:
+    			cmous=pygame.mouse.get_pos()
+    			ox,oy=CLICK_START_ORIG[0],CLICK_START_ORIG[1]
+    			w,h=abs(cmous[0]-CLICK_START_ORIG[0]),abs(cmous[1]-CLICK_START_ORIG[1])
+    			if ox>cmous[0]: ox=cmous[0]
+    			if oy>cmous[1]: oy=cmous[1]
+    			pygame.draw.rect(DISPLAYSURF,WHITE,pygame.Rect(ox,oy,w,h),SELECT_THICKNESS)
+		  
+    	if K%MOUSEOVER_MOD==0:
+    		draw_extras()
+    		mouse_pos=pygame.mouse.get_pos()
+    		backmap_pos=backmap(*mouse_pos)
+    		country_text=puz.get_country_at(*backmap_pos)
+    		if country_text is not None:
+    			text_surface = DEFAULT_FONT.render(country_text, True, BLACK)
+    			DISPLAYSURF.blit(text_surface,(WIDTH-PANEL_WIDTH+20,HEIGHT//2))
+    	K+=1
     
     pygame_widgets.update(events)
-    ARTIFICIAL_WIDGETS.update(events)
+    if MODE==0:
+    	ARTIFICIAL_WIDGETS.update(events)
     pygame.display.update()
     frames_per_second.tick(FPS)
 
