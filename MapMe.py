@@ -168,7 +168,7 @@ class DynamicMapLoader:
 print("Loading country names and connections ...",end=" ",flush=True)
 country_names=np.load("data/indexed_countries.npy")
 countries_for_dropdown=[s.replace("_"," ") for s in country_names]
-country_adj=np.load("data/adjacency.npy")
+country_adj=np.load("data/adjacency2.npy")
 country_adj=country_adj | country_adj.transpose() # Symmetrize
 assert (country_adj.shape[0]==len(country_names))
 print("done",flush=True)
@@ -754,7 +754,7 @@ while True:
     		country_text=puz.get_country_at(*backmap_pos)
     		if country_text is not None:
     			text_surface = DEFAULT_FONT.render(country_text, True, BLACK)
-    			DISPLAYSURF.blit(text_surface,(WIDTH-PANEL_WIDTH+20,HEIGHT//2))
+    			DISPLAYSURF.blit(text_surface,(WIDTH-PANEL_WIDTH+20,HEIGHT//2-100))
     	K+=1
     
     pygame_widgets.update(events)
